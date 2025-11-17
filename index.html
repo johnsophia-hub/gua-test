@@ -41,7 +41,7 @@
     color: #9ca3af;
     margin-bottom: 8px;
   }
-  textarea, input[type="text"] {
+  textarea {
     width: 100%;
     box-sizing: border-box;
     border-radius: 10px;
@@ -53,7 +53,7 @@
     outline: none;
     resize: vertical;
   }
-  textarea:focus, input[type="text"]:focus {
+  textarea:focus {
     border-color: #818cf8;
     box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.45);
   }
@@ -80,6 +80,7 @@
   }
   button:disabled {
     opacity: 0.55;
+    cursor: default;
   }
   .tag-row {
     display: flex;
@@ -120,13 +121,18 @@
     color: #9ca3af;
     margin-top: 6px;
   }
+  .rolling {
+    font-size: 0.82rem;
+    color: #a5b4fc;
+    margin-top: 8px;
+  }
 </style>
 </head>
 
 <body>
 <div class="app">
   <h1>AI 八卦勢占 · 測試版</h1>
-  <div class="subtitle">輸入問題 → 抽卦 → 產生可貼給 ChatGPT 的解析請求。</div>
+  <div class="subtitle">輸入問題 → 抽卦（有動畫）→ 產生可貼給 ChatGPT 的解析請求。</div>
 
   <div class="card">
     <div class="label">你的問題</div>
@@ -139,6 +145,7 @@
       <button id="draw">隨機抽一卦</button>
       <button id="reset" class="secondary">重置</button>
     </div>
+    <div id="rollingBox" class="rolling" style="display:none;"></div>
     <div id="guaBox" style="margin-top:12px; display:none;">
       <div class="gua-name" id="gName"></div>
       <div class="gua-brief" id="gBrief"></div>
@@ -167,35 +174,72 @@
   ];
 
   var current = null;
+  var isRolling = false;
+  var rollTimer = null;
+  var rollInterval = null;
 
-  document.getElementById("draw").onclick = function () {
-    var idx = Math.floor(Math.random() * guas.length);
-    current = guas[idx];
+  var drawBtn = document.getElementById("draw");
+  var resetBtn = document.getElementById("reset");
+  var genBtn = document.getElementById("genPrompt");
+  var rollingBox = document.getElementById("rollingBox");
+  var guaBox = document.getElementById("guaBox");
 
-    document.getElementById("gName").textContent = current.name;
-    document.getElementById("gBrief").textContent = current.brief;
-    document.getElementById("gMeta").textContent = current.meta;
+  drawBtn.onclick = function () {
+    if (isRolling) { return; }  // 防止重複點
+    isRolling = true;
+    current = null;
+    document.getElementById("prompt").textContent = "";
+    guaBox.style.display = "none";
+    rollingBox.style.display = "block";
+    rollingBox.textContent = "卦象運轉中…";
 
-    var tagsBox = document.getElementById("gTags");
-    tagsBox.innerHTML = "";
-    current.tags.forEach(function(t){
-      var s = document.createElement("span");
-      s.className = "tag";
-      s.textContent = t;
-      tagsBox.appendChild(s);
-    });
+    var tick = 0;
+    rollInterval = setInterval(function () {
+      var idx = Math.floor(Math.random() * guas.length);
+      var g = guas[idx];
+      rollingBox.textContent = "卦象運轉中…「" + g.name + "」";
+      tick++;
+    }, 120);  // 每 0.12 秒換一次名字
 
-    document.getElementById("guaBox").style.display = "block";
+    var duration = 3000 + Math.floor(Math.random() * 2000); // 3–5 秒
+    rollTimer = setTimeout(function () {
+      clearInterval(rollInterval);
+      rollInterval = null;
+
+      var idx = Math.floor(Math.random() * guas.length);
+      current = guas[idx];
+
+      document.getElementById("gName").textContent = current.name;
+      document.getElementById("gBrief").textContent = current.brief;
+      document.getElementById("gMeta").textContent = current.meta;
+
+      var tagsBox = document.getElementById("gTags");
+      tagsBox.innerHTML = "";
+      current.tags.forEach(function(t){
+        var s = document.createElement("span");
+        s.className = "tag";
+        s.textContent = t;
+        tagsBox.appendChild(s);
+      });
+
+      rollingBox.style.display = "none";
+      guaBox.style.display = "block";
+      isRolling = false;
+    }, duration);
   };
 
-  document.getElementById("reset").onclick = function () {
+  resetBtn.onclick = function () {
     document.getElementById("question").value = "";
     current = null;
-    document.getElementById("guaBox").style.display = "none";
+    if (rollInterval) { clearInterval(rollInterval); rollInterval = null; }
+    if (rollTimer) { clearTimeout(rollTimer); rollTimer = null; }
+    rollingBox.style.display = "none";
+    guaBox.style.display = "none";
     document.getElementById("prompt").textContent = "";
+    isRolling = false;
   };
 
-  document.getElementById("genPrompt").onclick = function () {
+  genBtn.onclick = function () {
     var q = document.getElementById("question").value.trim();
     if (!q) { alert("請先輸入問題"); return; }
     if (!current) { alert("請先抽一卦"); return; }
