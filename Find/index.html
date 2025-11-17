@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI 八卦勢占 - 測試版</title>
+
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #0b1020;
+    color: #f5f5f5;
+  }
+  .app {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 0.25rem;
+  }
+  .subtitle {
+    font-size: 0.95rem;
+    color: #a8a8c5;
+    margin-bottom: 1.4rem;
+    line-height: 1.5;
+  }
+  .card {
+    background: rgba(17, 24, 48, 0.92);
+    border-radius: 14px;
+    padding: 16px 14px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(148, 163, 255, 0.25);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .label {
+    font-size: 0.82rem;
+    color: #9ca3af;
+    margin-bottom: 8px;
+  }
+  textarea, input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 10px;
+    border: 1px solid #4b5563;
+    padding: 10px 11px;
+    font-size: 0.95rem;
+    background: rgba(15, 23, 42, 0.9);
+    color: #e5e7eb;
+    outline: none;
+    resize: vertical;
+  }
+  textarea:focus, input[type="text"]:focus {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.45);
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  button {
+    flex: 1;
+    border-radius: 999px;
+    border: none;
+    padding: 9px 14px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    background: #4f46e5;
+    color: #f9fafb;
+  }
+  button.secondary {
+    background: #111827;
+    color: #e5e7eb;
+    border: 1px solid #4b5563;
+  }
+  button:disabled {
+    opacity: 0.55;
+  }
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .tag {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    background: rgba(31, 41, 55, 0.9);
+    color: #d1d5db;
+    border: 1px solid rgba(148, 163, 255, 0.3);
+  }
+  .gua-name {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .gua-brief {
+    font-size: 0.9rem;
+    color: #d1d5db;
+    margin-bottom: 6px;
+  }
+  .gua-meta {
+    font-size: 0.78rem;
+    color: #9ca3af;
+  }
+  .output {
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-top: 10px;
+  }
+  .hint {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-top: 6px;
+  }
+</style>
+</head>
+
+<body>
+<div class="app">
+  <h1>AI 八卦勢占 · 測試版</h1>
+  <div class="subtitle">輸入問題 → 抽卦 → 產生可貼給 ChatGPT 的解析請求。</div>
+
+  <div class="card">
+    <div class="label">你的問題</div>
+    <textarea id="question" placeholder="例：我最近考慮換工作，現在適合行動嗎？"></textarea>
+  </div>
+
+  <div class="card">
+    <div class="label">抽卦</div>
+    <div class="row">
+      <button id="draw">隨機抽一卦</button>
+      <button id="reset" class="secondary">重置</button>
+    </div>
+    <div id="guaBox" style="margin-top:12px; display:none;">
+      <div class="gua-name" id="gName"></div>
+      <div class="gua-brief" id="gBrief"></div>
+      <div class="gua-meta" id="gMeta"></div>
+      <div class="tag-row" id="gTags"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">產生解析請求（Prompt）</div>
+    <button id="genPrompt">產生</button>
+    <div class="output" id="prompt"></div>
+  </div>
+</div>
+
+<script>
+  var guas = [
+    {name:"乾卦 · 天", brief:"主動、開創、向上、外放。", meta:"方向：西北 · 性質：剛健 · 五行：金", tags:["主動出擊","承擔責任","上位者","壓力但有機會"]},
+    {name:"坤卦 · 地", brief:"承接、配合、穩定、蓄勢。", meta:"方向：西南 · 性質：柔順 · 五行：土", tags:["先穩住","配合環境","重視基礎","不宜硬衝"]},
+    {name:"震卦 · 雷", brief:"突然變動、驚醒、啟動。", meta:"方向：東 · 性質：動 · 五行：木", tags:["突發事件","被迫決定","打破僵局","需要反應快"]},
+    {name:"巽卦 · 風", brief:"滲透、漸進、靠溝通推動。", meta:"方向：東南 · 性質：入 · 五行：木", tags:["溝通為主","慢慢來","協商","說服力重要"]},
+    {name:"坎卦 · 水", brief:"反覆、風險、壓力、困境。", meta:"方向：北 · 性質：陷 · 五行：水", tags:["風險高","資訊不足","謹慎決定","過程辛苦"]},
+    {name:"離卦 · 火", brief:"曝光、看見、表現、被檢視。", meta:"方向：南 · 性質：明 · 五行：火", tags:["曝光度高","形象重要","適合表現","被放大檢視"]},
+    {name:"艮卦 · 山", brief:"停止、界線、止損。", meta:"方向：東北 · 性質：止 · 五行：土", tags:["該停就停","畫界線","止損","先不要動"]},
+    {name:"兌卦 · 澤", brief:"交流、享樂、氣氛好、短期收穫。", meta:"方向：西 · 性質：悅 · 五行：金", tags:["輕鬆談","靠人脈","短期收穫","不要太用力"]}
+  ];
+
+  var current = null;
+
+  document.getElementById("draw").onclick = function () {
+    var idx = Math.floor(Math.random() * guas.length);
+    current = guas[idx];
+
+    document.getElementById("gName").textContent = current.name;
+    document.getElementById("gBrief").textContent = current.brief;
+    document.getElementById("gMeta").textContent = current.meta;
+
+    var tagsBox = document.getElementById("gTags");
+    tagsBox.innerHTML = "";
+    current.tags.forEach(function(t){
+      var s = document.createElement("span");
+      s.className = "tag";
+      s.textContent = t;
+      tagsBox.appendChild(s);
+    });
+
+    document.getElementById("guaBox").style.display = "block";
+  };
+
+  document.getElementById("reset").onclick = function () {
+    document.getElementById("question").value = "";
+    current = null;
+    document.getElementById("guaBox").style.display = "none";
+    document.getElementById("prompt").textContent = "";
+  };
+
+  document.getElementById("genPrompt").onclick = function () {
+    var q = document.getElementById("question").value.trim();
+    if (!q) { alert("請先輸入問題"); return; }
+    if (!current) { alert("請先抽一卦"); return; }
+
+    var text =
+"你是一位「現代易學分析師」，用理性方式解析“勢”的走向。\n\n"+
+"【使用者的問題】\n"+ q +"\n\n"+
+"【抽到的卦】\n"+
+"卦名："+ current.name +"\n"+
+"大意："+ current.brief +"\n"+
+"象意："+ current.meta +"\n"+
+"提示關鍵詞："+ current.tags.join("、") +"\n\n"+
+"請依下列步驟回答：\n"+
+"1. 先重述問題的核心焦點。\n"+
+"2. 根據卦象判斷目前的大勢（偏進、偏守、偏險、偏變等）。\n"+
+"3. 推出 2～3 個可能的發展分支，並說明各自的成因。\n"+
+"4. 給出適合的行動建議（主動？觀望？試探？止損？）。\n"+
+"5. 使用現實語言，不要迷信化。";
+
+    document.getElementById("prompt").textContent = text;
+  };
+</script>
+
+</body>
+</html>
